@@ -1,0 +1,3 @@
+= Pops Onlyoffice
+
+This plugin overrides the Onlyoffice plugin for Pops specific changes
