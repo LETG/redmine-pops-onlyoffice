@@ -1,0 +1,92 @@
+- imageTypes = ['.jpg','.jpeg', '.JFIF', '.jpeg2000', '.exif', '.tiff', '.raw', '.gif', '.bmp', '.png']
+- wordTypes = ['.doc', '.docx', '.rtf']
+- xlsTypes = ['.xls', '.xlsx']
+- pdfTypes = ['.pdf']
+- pptTypes = ['.ppt', '.pptx', '.ppsx']
+- zipTypes = ['.zip', '.rar', '.7z', '.tar', '.zipx']
+
+.contextual
+  = link_to l(:label_document_new), new_project_document_path(@project), :class => 'icon icon-add',
+      :onclick => 'showAndScrollTo("add-document", "document_title"); $(".project-documents").hide(); return false;' if User.current.allowed_to?(:add_documents, @project)
+#add-document style="display:none;"
+  h2= l(:label_document_new)
+  = labelled_form_for @document, :url => project_documents_path(@project), :html => {:multipart => true} do |f|
+    = render :partial => 'form', :locals => {:f => f}
+    p
+      = submit_tag l(:button_create)
+      '
+      = link_to l(:button_cancel), '#', :onclick => '$("#add-document").hide(); $(".project-documents").show(); return false;'
+
+.project-marge
+.project-documents
+  - @project.documents.visible.includes(:category).order("#{DocumentCategory.table_name}.name, created_date DESC").group_by(&:category).each do |category, docs|
+    .project-documents-title
+      = category.name
+    .project-documents-list
+      ul
+        - docs.each do |d|
+          li.document
+            .document-files.document-cell
+              - unless d.url_to.nil? || d.url_to.blank?
+                = link_to d.url_to, target: '_blank', title: d.url_to do
+                  .document-file.file-icon-link
+              - d.attachments.each do |a|
+                = link_to a, target: '_blank', title: (a.description.blank? ? a.filename : a.description) do
+                  - ext = File.extname(a.filename)
+                  - if imageTypes.include?(ext)
+                    .document-file.file-icon-image
+                  - elsif wordTypes.include?(ext)
+                    .document-file.file-icon-word
+                  - elsif xlsTypes.include?(ext)
+                    .document-file.file-icon-excel
+                  - elsif pdfTypes.include?(ext)
+                    .document-file.file-icon-pdf
+                  - elsif pptTypes.include?(ext)
+                    .document-file.file-icon-powerpoint
+                  - elsif zipTypes.include?(ext)
+                    .document-file.file-icon-zip
+                  - else
+                    .document-file.file-icon-default
+            .document-infos.document-cell
+              .document-info-header
+                - if d.private?
+                  .document-info-icon
+                    span.fa.fa-lock title="#{I18n.t('document_private')}"
+                .document-info-title
+                  = d.title
+                .document-info-tags
+                  - d.tag_list.each do |t|
+                    .document-info-tag
+                      = t
+              .document-info-resume
+                = truncate(d.description.html_safe, length: 100)
+            .document-date.document-cell
+              = d.created_date.strftime('%d.%m.%Y') if d.created_date
+            .document-actions.document-cell
+              - if User.current.admin? || User.current.membership(@project)
+                = link_to image_tag('pencil.png'), edit_document_path(d)
+              - if User.current.admin? || User.current.allowed_to?(:delete, @project) || (User.current.membership(@project) && User.current.membership(@project).roles.include?(Role.where(name: 'Coordinateur').first))
+                .right = link_to image_tag('cross.png'), document_path(d), method: :delete, confirm: 'Supprimer le document ?'
+
+/ Onlyoffice dropdown button
+- if OnlyofficeController.checking_activity_onlyoffice
+  - if User.current.allowed_to?(:add_documents, @project)
+    - content_for :header_tags do
+      = stylesheet_link_tag 'onlyoffice-icons', plugin: 'onlyoffice_redmine'
+
+    span#onlyoffice-create-dropdown.drdn.hidden
+      span.drdn-trigger
+        span
+          = l(:onlyoffice_create_dropdown)
+          span.icon-only.icon-actions title="#{l(:onlyoffice_create_dropdown)}"
+            = l(:onlyoffice_create_dropdown)
+      .drdn-content
+        .drdn-items
+          = link_to l(:onlyoffice_create_docx), onlyoffice_create_new_path('docx', @project), class: 'icon onlyoffice-create docx'
+          = link_to l(:onlyoffice_create_xlsx), onlyoffice_create_new_path('xlsx', @project), class: 'icon onlyoffice-create xlsx'
+          = link_to l(:onlyoffice_create_pptx), onlyoffice_create_new_path('pptx', @project), class: 'icon onlyoffice-create pptx'
+          = link_to l(:onlyoffice_create_docxf), onlyoffice_create_new_path('docxf', @project), class: 'icon onlyoffice-create docxf'
+
+    = javascript_include_tag 'onlyofficeMenu', plugin: 'onlyoffice_redmine'
+    javascript:
+      ONLYOFFICE.Buttons.addOnlyOfficeCreateButton(document.getElementsByClassName("contextual")[0]);

@@ -1,0 +1,168 @@
+- imageTypes = ['.jpg','.jpeg', '.JFIF', '.jpeg2000', '.exif', '.tiff', '.raw', '.gif', '.bmp', '.png']
+- wordTypes = ['.doc', '.docx', '.rtf']
+- xlsTypes = ['.xls', '.xlsx']
+- pdfTypes = ['.pdf']
+- pptTypes = ['.ppt', '.pptx', '.ppsx']
+- zipTypes = ['.zip', '.rar', '.7z', '.tar', '.zipx']
+
+.contextual
+  - if User.current.allowed_to?(:edit_documents, @project)
+    = link_to l(:button_edit), edit_document_path(@document), :class => 'icon icon-edit', :accesskey => accesskey(:edit)
+  - if User.current.allowed_to?(:delete_documents, @project)
+    = delete_link document_path(@document)
+
+.project-marge
+.project-documents
+      .project-documents-title
+        = DocumentCategory.find(@document.category_id).name
+      .project-documents-list
+        ul
+          li.document
+            .document-files.document-cell
+              - unless @document.url_to.nil? || @document.url_to.blank?
+                  = link_to @document.url_to, target: '_blank', title: @document.url_to do
+                    .document-file.file-icon-link
+              - @document.attachments.each do |a|
+                = link_to a, target: '_blank', title: a.filename do
+                  - ext = File.extname(a.filename)
+                  - if imageTypes.include?(ext)
+                    .document-file.file-icon-image
+                  - elsif wordTypes.include?(ext)
+                    .document-file.file-icon-word
+                  - elsif xlsTypes.include?(ext)
+                    .document-file.file-icon-excel
+                  - elsif pdfTypes.include?(ext)
+                    .document-file.file-icon-pdf
+                  - elsif pptTypes.include?(ext)
+                    .document-file.file-icon-powerpoint
+                  - elsif zipTypes.include?(ext)
+                    .document-file.file-icon-zip
+                  - else
+                    .document-file.file-icon-default
+            .document-infos.document-cell
+              .document-info-header
+                - if @document.private?
+                  .document-info-icon
+                    i.fa.fa-lock title="#{I18n.t('document_private')}"
+                .document-info-title
+                  = @document.title
+                .document-info-tags
+                  - @document.tag_list.each do |t|
+                    .document-info-tag
+                      = t
+              .document-info-resume
+                = @document.description.html_safe
+            .document-date.document-cell
+              = @document.created_date.strftime('%d.%m.%Y')
+
+= link_to_attachments @document
+
+- if authorize_for('documents', 'add_attachment')
+  p
+    = link_to l(:label_attachment_new), {}, :onclick => "$('#add_attachment_form').show(); return false;", :id => 'attach_files_link', target: "_blank"
+  = form_tag({ :controller => 'documents', :action => 'add_attachment', :id => @document }, :multipart => true, :id => "add_attachment_form", :style => "display:none;") do
+    .box
+      p= render :partial => 'attachments/form'
+    = submit_tag l(:button_add)
+
+- html_title @document.title
+
+/ Onlyoffice integration
+- if OnlyofficeController.checking_activity_onlyoffice
+  = javascript_include_tag 'onlyofficeMenu', plugin: 'onlyoffice_redmine'
+
+  ruby:
+    view_permission = false
+    edit_permission = false
+    user_roles = User.current.roles_for_project(@project)
+
+    user_roles.each do |role|
+      if role.permissions.include? :view_documents
+        view_permission = true
+      end
+      if role.permissions.include? :edit_documents
+        edit_permission = true
+      end
+    end
+
+    project_is_not_readonly = @project.status != 5
+
+    view_permission = view_permission || User.current.admin
+    edit_permission = (edit_permission || User.current.admin) && project_is_not_readonly
+    is_editable_array = []
+    attachments_disk_filenames = []
+    is_convert = []
+
+    @document.attachments.each do |attachment|
+      is_editable_array = is_editable_array + [DocumentHelper.is_editable(attachment)]
+      attachments_disk_filenames = attachments_disk_filenames + [attachment.disk_filename]
+      ext = DocumentHelper.file_ext(attachment.disk_filename, true)
+      is_convert = is_convert + [FormatUtility.format_supported(ext).length != 0]
+    end
+
+  - if User.current.allowed_to?(:add_documents, @project)
+    - content_for :header_tags do
+      = stylesheet_link_tag 'onlyoffice-icons', plugin: 'onlyoffice_redmine'
+    
+    span#onlyoffice-create-dropdown.drdn.hidden
+      span.drdn-trigger
+        span
+          = l(:onlyoffice_create_dropdown)
+          span.icon-only.icon-actions title="#{l(:onlyoffice_create_dropdown)}"
+            = l(:onlyoffice_create_dropdown)
+      .drdn-content
+        = form_tag(onlyoffice_create_new_doc_attachment_path(@document, @project), multipart: true, class: 'drdn-items') do
+          = submit_tag l(:onlyoffice_create_docx), class: 'icon onlyoffice-create docx', name: 'docType'
+          = submit_tag l(:onlyoffice_create_xlsx), class: 'icon onlyoffice-create xlsx', name: 'docType'
+          = submit_tag l(:onlyoffice_create_pptx), class: 'icon onlyoffice-create pptx', name: 'docType'
+          = submit_tag l(:onlyoffice_create_docxf), class: 'icon onlyoffice-create docxf', name: 'docType'
+    
+    - @document.custom_field_values.each do |value|
+      p
+        = custom_field_tag_with_label :document, value
+    
+    javascript:
+      const container = document.getElementById("attach_files_link").parentElement;
+      ONLYOFFICE.Buttons.addOnlyOfficeCreateButton(container);
+    
+    css:
+      #onlyoffice-create-dropdown {
+          margin-left: 10px;
+      }
+      #onlyoffice-create-dropdown .drdn-content {
+          top: auto;
+      }
+      #onlyoffice-create-dropdown .drdn-items input.icon {
+          text-align: left;
+          width: 100%;
+          padding-left: 24px;
+          background-position-x: 4px;
+      }
+
+  - if view_permission || edit_permission
+    javascript:
+      ONLYOFFICE.Buttons.addOnlyOfficeButton(
+        #{raw(FileUtility.get_all_available_formats)},
+        #{raw(attachments_disk_filenames)},
+        #{raw(is_convert)},
+        #{@document.id},
+        "Document"
+      );
+
+      const onlyofficeButtons = document.getElementsByClassName("onlyoffice-editor-button");
+
+      for (let i = 0; i < onlyofficeButtons.length; i++) {
+        if (#{view_permission}) {
+          onlyofficeButtons[i].title = "#{l(:open_in_onlyoffice)}";
+        }
+
+        if (#{is_editable_array}[parseInt(onlyofficeButtons[i].id.replace("onlyoffice-button-", ""))] && #{edit_permission}) {
+          onlyofficeButtons[i].title = "#{l(:edit_in_onlyoffice)}";
+        }
+      }
+
+      const onlyofficeButtonsConvert = document.getElementsByClassName("onlyoffice-editor-button-convert");
+
+      for (let i = 0; i < onlyofficeButtonsConvert.length; i++) {
+        onlyofficeButtonsConvert[i].title = "#{l(:onlyoffice_convert_dropdown)}";
+      }
