@@ -87,6 +87,6 @@
           = link_to l(:onlyoffice_create_pptx), onlyoffice_create_new_path('pptx', @project), class: 'icon onlyoffice-create pptx'
           = link_to l(:onlyoffice_create_docxf), onlyoffice_create_new_path('docxf', @project), class: 'icon onlyoffice-create docxf'
 
-    = javascript_include_tag 'onlyofficeMenu', plugin: 'onlyoffice_redmine'
+    = javascript_include_tag 'onlyofficeMenu', plugin: 'pops_onlyoffice'
     javascript:
       ONLYOFFICE.Buttons.addOnlyOfficeCreateButton(document.getElementsByClassName("contextual")[0]);

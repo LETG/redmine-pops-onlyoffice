@@ -69,7 +69,7 @@
 
 / Onlyoffice integration
 - if OnlyofficeController.checking_activity_onlyoffice
-  = javascript_include_tag 'onlyofficeMenu', plugin: 'onlyoffice_redmine'
+  = javascript_include_tag 'onlyofficeMenu', plugin: 'pops_onlyoffice'
 
   ruby:
     view_permission = false
@@ -97,7 +97,7 @@
       is_editable_array = is_editable_array + [DocumentHelper.is_editable(attachment)]
       attachments_disk_filenames = attachments_disk_filenames + [attachment.disk_filename]
       ext = DocumentHelper.file_ext(attachment.disk_filename, true)
-      is_convert = is_convert + [FormatUtility.format_supported(ext).length != 0]
+      # is_convert = is_convert + [FormatUtility.format_supported(ext).length != 0]
     end
 
   - if User.current.allowed_to?(:add_documents, @project)
