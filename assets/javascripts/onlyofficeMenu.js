@@ -35,8 +35,7 @@
                     let attachmentId = attachmentHref.substring(attachmentHref.lastIndexOf("/"));
                     editorButton.href = "#";
                     editorButton.onclick = function () {
-                        // window.location.href = window.location.origin + "/pops/onlyoffice/editor" + attachmentId;
-                        window.location.href = window.location.origin + "/onlyoffice/editor" + attachmentId;
+                        window.location.href = window.location.origin + "/pops/onlyoffice/editor" + attachmentId;
                     }
                     var convertButton = null;
                     if (isConvert[i]) {
